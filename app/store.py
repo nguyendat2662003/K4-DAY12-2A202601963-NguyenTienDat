@@ -51,7 +51,14 @@ class ChatStore:
         Trả ``True`` nếu thành công, ``False`` nếu có bất kỳ Exception nào
         (mất mạng, sai mật khẩu, Redis chưa khởi động...).
         """
-        raise NotImplementedError("TODO (CP4): cài đặt ping")
+        try:
+            self.client.ping()
+            return True
+        except Exception:
+            # Mất mạng, sai mật khẩu, Redis chưa lên... — mọi lý do đều là
+            # "chưa sẵn sàng", và /readyz cần một câu trả lời chứ không cần
+            # một exception.
+            return False
 
     def add_turn(self, client_id: str, role: str, content: str) -> None:
         """Ghi thêm một lượt vào lịch sử.
@@ -65,7 +72,14 @@ class ChatStore:
           3. ``self.client.expire(key, HISTORY_TTL_SECONDS)`` — hội thoại cũ
              tự hết hạn, khỏi phải dọn tay.
         """
-        raise NotImplementedError("TODO (CP4): cài đặt add_turn")
+        key = self._key(client_id)
+        self.client.rpush(
+            key, json.dumps({"role": role, "content": content}, ensure_ascii=False)
+        )
+        # Giữ lại HISTORY_MAX_MESSAGES message MỚI NHẤT — prompt phình vô hạn
+        # thì tiền token cũng vậy.
+        self.client.ltrim(key, -HISTORY_MAX_MESSAGES, -1)
+        self.client.expire(key, HISTORY_TTL_SECONDS)
 
     def history(self, client_id: str) -> list[dict]:
         """Đọc lịch sử hội thoại, cũ nhất trước.
@@ -73,7 +87,8 @@ class ChatStore:
         TODO (CP4): ``self.client.lrange(key, 0, -1)`` rồi ``json.loads``
         từng phần tử. Chưa có gì → trả về list rỗng.
         """
-        raise NotImplementedError("TODO (CP4): cài đặt history")
+        raw = self.client.lrange(self._key(client_id), 0, -1)
+        return [json.loads(item) for item in raw]
 
     def reset(self, client_id: str) -> None:
         """CHO SẴN — xóa lịch sử của một client."""
