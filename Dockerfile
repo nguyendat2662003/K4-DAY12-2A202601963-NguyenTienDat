@@ -49,5 +49,7 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD python -c "import os,urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:'+os.environ.get('PORT','8000')+'/healthz', timeout=4).status == 200 else 1)"
 
-# Dạng shell để ${PORT} được giãn ra — cloud tự gán cổng, không cố định 8000
-CMD uvicorn app.main:app --host 0.0.0.0 --port ${PORT}
+# Vẫn cần shell để ${PORT} được giãn ra (cloud tự gán cổng), nhưng `exec` để
+# uvicorn thay thế shell làm PID 1 — nếu không, SIGTERM lúc deploy sẽ đến shell
+# chứ không đến uvicorn, và ShutdownGuard trong app/lifecycle.py không chạy.
+CMD ["sh", "-c", "exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
