@@ -56,4 +56,24 @@ def verify_bearer_token(
          ``ANONYMOUS_CLIENT``. client_id này là đơn vị để rate limit và tính
          chi phí.
     """
-    raise NotImplementedError("TODO (CP3): cài đặt verify_bearer_token")
+    # Một lỗi chung cho mọi trường hợp: nói rõ sai ở đâu là tặng thông tin
+    # cho người đang dò token.
+    unauthorized = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="invalid or missing bearer token",
+        headers={"WWW-Authenticate": SCHEME},
+    )
+
+    if not authorization:
+        raise unauthorized
+
+    scheme, _, token = authorization.partition(" ")
+    if scheme.lower() != SCHEME.lower() or not token:
+        raise unauthorized
+
+    # compare_digest chạy hết chuỗi dù lệch ngay ký tự đầu — `==` thì không,
+    # và thời gian trả lời của nó rò rỉ thông tin về token (timing attack).
+    if not secrets.compare_digest(token, get_settings().api_token):
+        raise unauthorized
+
+    return x_client_id or ANONYMOUS_CLIENT
