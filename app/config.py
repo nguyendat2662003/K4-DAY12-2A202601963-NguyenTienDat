@@ -41,9 +41,21 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    # TODO (CP1): khai báo 7 trường theo bảng trên, ví dụ:
-    #     port: int = 8000
-    #     api_token: str
+    # Cổng HTTP — cloud tự gán qua biến PORT nên không hardcode ở nơi khác
+    port: int = 8000
+
+    # KHÔNG có mặc định: thiếu API_TOKEN thì Settings() ném ValidationError
+    # ngay lúc khởi động, thay vì im lặng chạy bằng một token ai cũng đoán được
+    api_token: str
+
+    redis_url: str = "redis://localhost:6379/0"
+
+    bucket_capacity: int = 10
+    refill_per_minute: int = 10
+
+    daily_budget_usd: float = 1.0
+
+    log_level: str = "INFO"
 
 
 @lru_cache(maxsize=1)
